@@ -8,6 +8,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from shapely.geometry import box
+from shapely.ops import transform as _shapely_transform
+from pyproj import Transformer
 
 
 def _to_crs(gdf: gpd.GeoDataFrame, epsg: int) -> gpd.GeoDataFrame:
@@ -331,6 +333,17 @@ def export_powerbi_tables(
 
     fact_rows: list[dict] = []
 
+    # compute location scores mapping if points are available
+    location_score_map = {}
+    try:
+        if clients_gdf is not None and points_gdf is not None:
+            scores_df = compute_location_scores(clients_gdf, points_gdf)
+            if "Full Address" in scores_df.columns and "location_score" in scores_df.columns:
+                location_score_map = scores_df.set_index("Full Address")["location_score"].to_dict()
+    except Exception:
+        # do not fail exports if scoring fails
+        location_score_map = {}
+
     if clients_gdf is not None:
         clients_src = clients_gdf[["Full Address", "geometry"]].copy()
         clients_src = clients_src[clients_src.geometry.notna() & ~clients_src.geometry.is_empty].copy().reset_index(drop=True)
@@ -348,7 +361,8 @@ def export_powerbi_tables(
                 "parent_id": None,
                 "lat": float(ll_point.y),
                 "lon": float(ll_point.x),
-                "geometry_wkt": row.geometry.wkt,
+                "geometry_wkt": clients_ll.iloc[idx].geometry.wkt,
+                "location_score": location_score_map.get(row["Full Address"], None),
                 "area_km2": 0.0,
                 "perimeter_km": 0.0,
                 "metric_1": None,
@@ -369,7 +383,11 @@ def export_powerbi_tables(
                 "parent_id": idx + 1,
                 "lat": float(ll_point.y),
                 "lon": float(ll_point.x),
-                "geometry_wkt": buffer_5km.wkt,
+                # reproject buffer geometry to WGS84 explicitly and export WKT
+                "geometry_wkt": _shapely_transform(
+                    Transformer.from_crs(clients_3857.crs, "EPSG:4326", always_xy=True).transform,
+                    buffer_5km,
+                ).wkt,
                 "area_km2": float(buffer_5km.area / 1_000_000),
                 "perimeter_km": float(buffer_5km.length / 1_000),
                 "metric_1": 5000,
@@ -385,7 +403,11 @@ def export_powerbi_tables(
                 "parent_id": idx + 1,
                 "lat": float(ll_point.y),
                 "lon": float(ll_point.x),
-                "geometry_wkt": buffer_10km.wkt,
+                # reproject buffer geometry to WGS84 explicitly and export WKT
+                "geometry_wkt": _shapely_transform(
+                    Transformer.from_crs(clients_3857.crs, "EPSG:4326", always_xy=True).transform,
+                    buffer_10km,
+                ).wkt,
                 "area_km2": float(buffer_10km.area / 1_000_000),
                 "perimeter_km": float(buffer_10km.length / 1_000),
                 "metric_1": 10000,
@@ -407,7 +429,7 @@ def export_powerbi_tables(
                 "parent_id": None,
                 "lat": lat,
                 "lon": lon,
-                "geometry_wkt": row.geometry.wkt,
+                "geometry_wkt": points_ll.iloc[idx].geometry.wkt,
                 "area_km2": float(row.geometry.area / 1_000_000) if row.geometry.geom_type != "Point" else 0.0,
                 "perimeter_km": float(row.geometry.length / 1_000) if row.geometry.geom_type != "Point" else 0.0,
                 "metric_1": row.get("element"),
@@ -429,7 +451,7 @@ def export_powerbi_tables(
                 "parent_id": None,
                 "lat": lat,
                 "lon": lon,
-                "geometry_wkt": row.geometry.wkt,
+                "geometry_wkt": points_ambanorte_ll.iloc[idx].geometry.wkt,
                 "area_km2": float(row.geometry.area / 1_000_000) if row.geometry.geom_type != "Point" else 0.0,
                 "perimeter_km": float(row.geometry.length / 1_000) if row.geometry.geom_type != "Point" else 0.0,
                 "metric_1": row.get("nam"),
@@ -451,7 +473,7 @@ def export_powerbi_tables(
                 "parent_id": None,
                 "lat": float(ll_centroid.y),
                 "lon": float(ll_centroid.x),
-                "geometry_wkt": row.geometry.wkt,
+                "geometry_wkt": partidos_ll.iloc[idx].geometry.wkt,
                 "area_km2": float(row.geometry.area / 1_000_000),
                 "perimeter_km": float(row.geometry.length / 1_000),
                 "metric_1": row.get("sag"),
@@ -463,6 +485,8 @@ def export_powerbi_tables(
         white_spots_src = white_spots_gdf.copy()
         if not isinstance(white_spots_src, gpd.GeoDataFrame):
             raise TypeError("white_spots_gdf must be a GeoDataFrame.")
+        # ensure white spot geometries are in WGS84 for export
+        white_spots_src = white_spots_src.to_crs(epsg=4326)
         for idx, row in white_spots_src.reset_index(drop=True).iterrows():
             fact_rows.append({
                 "source_table": "dim_white_spot_cells",
@@ -515,7 +539,11 @@ def export_powerbi_tables(
                     "parent_id": None,
                     "lat": lat,
                     "lon": lon,
-                    "geometry_wkt": ov5.wkt,
+                    # convert overlap geometry to WGS84 for WKT export
+                    "geometry_wkt": _shapely_transform(
+                        Transformer.from_crs(clients_3857.crs, "EPSG:4326", always_xy=True).transform,
+                        ov5,
+                    ).wkt,
                     "area_km2": float(ov5.area / 1_000_000),
                     "perimeter_km": float(ov5.length / 1_000),
                     "metric_1": 5000,
@@ -533,7 +561,11 @@ def export_powerbi_tables(
                     "parent_id": None,
                     "lat": lat,
                     "lon": lon,
-                    "geometry_wkt": ov10.wkt,
+                    # convert overlap geometry to WGS84 for WKT export
+                    "geometry_wkt": _shapely_transform(
+                        Transformer.from_crs(clients_3857.crs, "EPSG:4326", always_xy=True).transform,
+                        ov10,
+                    ).wkt,
                     "area_km2": float(ov10.area / 1_000_000),
                     "perimeter_km": float(ov10.length / 1_000),
                     "metric_1": 10000,
