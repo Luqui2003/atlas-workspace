@@ -1,6 +1,6 @@
 # Project Atlas
 
-[![CI](https://github.com/Luqui2003/geospatial-workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/Luqui2003/geospatial-workspace/actions/workflows/ci.yml)
+[![CI](https://github.com/Luqui2003/atlas-workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/Luqui2003/atlas-workspace/actions/workflows/ci.yml)
 
 Project Atlas provides geospatial analysis and visualization tooling for client location analysis, cannibalization detection, and white-spot identification.
 
