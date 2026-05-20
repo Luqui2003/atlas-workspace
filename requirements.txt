@@ -1,8 +1,8 @@
-pandas
-geopandas
-matplotlib
-shapely
-geopy
-folium
-osmium
-openpyxl
+pandas>=2.2,<3.0
+geopandas>=0.14,<0.18
+matplotlib>=3.7,<4.0
+shapely>=2.0,<3.0
+geopy>=2.4,<3.0
+folium>=0.14,<0.18
+pyosmium>=3.4,<4.0
+openpyxl>=3.0,<4.0
