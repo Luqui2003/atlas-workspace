@@ -1,5 +1,7 @@
 # Geospatial Project
 
+[![CI](https://github.com/Luqui2003/geospatial-workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/Luqui2003/geospatial-workspace/actions/workflows/ci.yml)
+
 This project loads location data, geocodes addresses, creates geospatial buffers, and visualizes amenities from OSM data.
 
 ## Data Sources
