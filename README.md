@@ -4,6 +4,12 @@
 
 Project Atlas provides geospatial analysis and visualization tooling for client location analysis, cannibalization detection, and white-spot identification.
 
+## Release v0.1.0
+
+See the release notes: `RELEASE_NOTES_v0.1.0.md` and `CHANGELOG.md` for details on this release.
+
+Project metadata: `pyproject.toml` declares the package name `project-atlas` and version `0.1.0`.
+
 ## Data Sources
 This demo is built for Buenos Aires and uses the following inputs:
 
