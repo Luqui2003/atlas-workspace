@@ -1,8 +1,8 @@
-# Geospatial Project
+# Project Atlas
 
 [![CI](https://github.com/Luqui2003/geospatial-workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/Luqui2003/geospatial-workspace/actions/workflows/ci.yml)
 
-This project loads location data, geocodes addresses, creates geospatial buffers, and visualizes amenities from OSM data.
+Project Atlas provides geospatial analysis and visualization tooling for client location analysis, cannibalization detection, and white-spot identification.
 
 ## Data Sources
 This demo is built for Buenos Aires and uses the following inputs:
