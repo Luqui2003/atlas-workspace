@@ -32,8 +32,27 @@ def filter_points_in_client_buffers(
     points_gdf: gpd.GeoDataFrame,
     client_buffers_gdf: gpd.GeoDataFrame,
 ) -> gpd.GeoDataFrame:
-    buffer_union = client_buffers_gdf.geometry.union_all()
-    return filter_points_within_geometry(points_gdf, buffer_union, target_epsg=client_buffers_gdf.crs.to_epsg())
+    # Ensure CRS alignment
+    points = points_gdf.copy()
+    buffers = client_buffers_gdf.copy()
+    if points.crs != buffers.crs:
+        points = points.to_crs(buffers.crs)
+
+    # Use spatial join to keep points that fall within any client's buffer geometry.
+    # This is more reliable than building a single union geometry (which can
+    # sometimes collapse or mis-handle multipart geometries depending on versions).
+    # Expect `buffers` to contain one geometry column per buffer (e.g. geometry_10km);
+    # if it's a GeoDataFrame with a single geometry column, sjoin will still work.
+    try:
+        joined = gpd.sjoin(points, buffers[[buffers.geometry.name,]].rename(columns={buffers.geometry.name: 'geometry'}).set_geometry('geometry'), how='inner', predicate='within')
+    except Exception:
+        # Fallback: try intersects if within is unsupported in older geopandas
+        joined = gpd.sjoin(points, buffers[[buffers.geometry.name,]].rename(columns={buffers.geometry.name: 'geometry'}).set_geometry('geometry'), how='inner', predicate='intersects')
+
+    # drop spatial join helper column if present
+    if 'index_right' in joined.columns:
+        return joined.drop(columns=['index_right'])
+    return joined
 
 
 def filter_points_in_partidos(

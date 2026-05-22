@@ -90,7 +90,37 @@ class RelevantLocationHandler(osmium.SimpleHandler):
             })
 
 
-def load_osm_relevant_points(pbf_path: str | Path) -> gpd.GeoDataFrame:
+def load_osm_relevant_points(pbf_path: str | Path, use_cached_csv: bool = False) -> gpd.GeoDataFrame:
+    cached_path = project_root() / "outputs" / "buenos_aires_amenities.csv"
+    if use_cached_csv and cached_path.exists():
+        points_df = pd.read_csv(cached_path)
+        if "geometry" not in points_df.columns or "id" not in points_df.columns:
+            raise ValueError(f"Cached OSM file at {cached_path} is missing required columns.")
+
+        points_df = points_df.copy()
+        points_df["geometry"] = gpd.GeoSeries.from_wkt(points_df["geometry"])
+        points_df["name"] = points_df["name"].fillna("Unnamed OSM point") if "name" in points_df.columns else "Unnamed OSM point"
+
+        metadata_columns = {"element", "id", "geometry"}
+        tag_columns = [column for column in points_df.columns if column not in metadata_columns]
+        points_df["tags"] = [
+            {
+                column: value
+                for column, value in zip(tag_columns, row)
+                if pd.notna(value) and str(value).strip()
+            }
+            for row in points_df[tag_columns].itertuples(index=False, name=None)
+        ]
+        points_df["tag_count"] = points_df["tags"].apply(len)
+        points_df["type"] = points_df["element"] if "element" in points_df.columns else "node"
+        points_gdf = gpd.GeoDataFrame(points_df, geometry="geometry", crs="EPSG:4326")
+        points_proj = points_gdf.to_crs(epsg=3857)
+        points_proj["geometry"] = points_proj.geometry.centroid
+        points_gdf = points_proj.to_crs(epsg=4326)
+        points_gdf["lat"] = points_gdf.geometry.y
+        points_gdf["lon"] = points_gdf.geometry.x
+        return points_gdf
+
     handler = RelevantLocationHandler()
     handler.apply_file(str(resolve_path(pbf_path)), locations=True)
 

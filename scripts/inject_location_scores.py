@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+import unicodedata
 
 OUT = Path(__file__).resolve().parents[1] / 'outputs'
 POWERBI = OUT / 'powerbi_exports' / 'dim_client_locations.csv'
@@ -11,17 +12,38 @@ if not SCORES.exists():
     print('Scores file not found:', SCORES)
     raise SystemExit(1)
 
-pb = pd.read_csv(POWERBI)
-s = pd.read_csv(SCORES)
-# map Full Address -> location_score
-if 'Full Address' in s.columns and 'location_score' in s.columns:
-    map_scores = s.set_index('Full Address')['location_score'].to_dict()
-elif 'feature_name' in s.columns and 'location_score' in s.columns:
-    map_scores = s.set_index('feature_name')['location_score'].to_dict()
-else:
-    map_scores = {}
+def norm_key(s: object) -> str:
+    if pd.isna(s):
+        return ""
+    return unicodedata.normalize('NFKC', str(s)).strip()
 
-# pb uses feature_name column matching Full Address
-pb['location_score'] = pb['feature_name'].map(map_scores)
-POWERBI.write_text(pb.to_csv(index=False))
+# read scores with latin1 to avoid mojibake from mixed encodings
+s = pd.read_csv(SCORES, encoding='latin1')
+# read PowerBI export as UTF-8 to preserve correct accents
+pb = pd.read_csv(POWERBI, encoding='utf-8')
+
+map_scores = {}
+def add_key(k, v):
+    nk = norm_key(k)
+    map_scores[nk] = v
+    # try to repair common mojibake (when UTF-8 bytes were decoded as latin1)
+    try:
+        repaired = k.encode('latin1').decode('utf-8')
+        map_scores[norm_key(repaired)] = v
+    except Exception:
+        pass
+
+if 'location_score' in s.columns:
+    if 'Full Address' in s.columns:
+        for k, v in s.set_index('Full Address')['location_score'].to_dict().items():
+            add_key(k, v)
+    elif 'feature_name' in s.columns:
+        for k, v in s.set_index('feature_name')['location_score'].to_dict().items():
+            add_key(k, v)
+
+# apply normalized mapping to feature_name
+pb['location_score'] = pb['feature_name'].apply(lambda v: map_scores.get(norm_key(v), None))
+
+# write back using utf-8
+pb.to_csv(POWERBI, index=False, encoding='utf-8')
 print('Updated', POWERBI)

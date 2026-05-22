@@ -34,24 +34,14 @@ for csv in csvs:
         # not a WKT
         print(f" - sample not valid WKT", flush=True)
         continue
-    # inspect coordinates
-    coords = None
-    if hasattr(geom, 'coords'):
-        try:
-            coords = list(geom.coords)[0]
-        except Exception:
-            coords = None
-    if coords is None:
-        # try centroid
-        try:
-            c = geom.centroid
-            coords = list(c.coords)[0]
-        except Exception:
-            coords = None
-    if coords is None:
+    # inspect coordinates using a point that is valid for any geometry type
+    try:
+        sample_point = geom if geom.geom_type == 'Point' else geom.representative_point()
+        coords = (float(sample_point.x), float(sample_point.y))
+    except Exception:
         print(f" - unable to determine sample coordinates", flush=True)
         continue
-    x, y = coords[0], coords[1]
+    x, y = coords
     # if coordinates are large (meters), assume EPSG:3857
     print(f" - sample coords = ({x}, {y})", flush=True)
     if abs(x) > 1000 or abs(y) > 1000:

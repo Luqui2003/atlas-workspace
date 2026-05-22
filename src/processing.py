@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Iterable
+import warnings
 
 import geopandas as gpd
 import pandas as pd
@@ -55,8 +56,14 @@ def create_client_geodataframe(df: pd.DataFrame, crs: str = "EPSG:4326") -> gpd.
     if not {"lat", "lon"}.issubset(df.columns):
         raise KeyError("Expected 'lat' and 'lon' columns before creating a GeoDataFrame.")
 
-    geometry = [Point(xy) for xy in zip(df["lon"], df["lat"])]
-    return gpd.GeoDataFrame(df.copy(), geometry=geometry, crs=crs)
+    valid_mask = df["lat"].notna() & df["lon"].notna()
+    if not valid_mask.all():
+        dropped = int((~valid_mask).sum())
+        warnings.warn(f"Skipping {dropped} client location(s) without geocoded coordinates.", RuntimeWarning)
+
+    cleaned = df.loc[valid_mask].copy()
+    geometry = [Point(xy) for xy in zip(cleaned["lon"], cleaned["lat"])]
+    return gpd.GeoDataFrame(cleaned, geometry=geometry, crs=crs)
 
 
 def project_to_meters(gdf: gpd.GeoDataFrame, epsg: int = 3857) -> gpd.GeoDataFrame:
