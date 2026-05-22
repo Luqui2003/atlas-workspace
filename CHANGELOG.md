@@ -3,10 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- Made the cached Buenos Aires amenities extract opt-in so the pipeline reads the full OSM PBF by default.
-- Switched client-buffer filtering to a spatial join so OSM points inside any client buffer are retained.
-- Hardened Power BI export scripts to handle WKT reprojection, score injection, and mixed CSV encodings.
-- Re-ran the pipeline and refreshed the Power BI exports from the full dataset.
+
+## [0.1.1] - 2026-05-21
+- Changed OSM loading so the Buenos Aires cached extract is opt-in and the full PBF is used by default.
+- Updated client-buffer filtering to use a spatial join so points inside any client buffer are preserved.
+- Improved client GeoDataFrame creation by skipping rows without geocoded coordinates with an explicit warning.
+- Hardened `scripts/fix_wkt_exports.py` to handle non-point geometries safely when checking/reprojecting WKT.
+- Hardened `scripts/inject_location_scores.py` with normalized key matching and mixed-encoding handling for score injection.
 
 ## [0.1.0] - 2026-05-19
 - Initial public release (Project Atlas)
